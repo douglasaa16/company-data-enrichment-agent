@@ -1,0 +1,28 @@
+<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;max-width:750px;margin:40px auto;line-height:1.5;color:#222}h1{font-size:20px}h2{font-size:15px;margin-top:20px}</style></head><body><h1>Reflection: Company Data Enrichment Agent</h1>
+
+<h2>Tools Chosen</h2>
+
+<p>I built the agent in Python using Perplexity's <code>pplx_sdk</code> search/fetch API as the research backend (equivalent tooling to a Claude/Copilot "vibe coding" agent, but scripted directly rather than through a chat UI). This let me combine live web search with targeted, prompt-guided extraction from real fetched pages, keeping results grounded in sources rather than a model's memory. The code and outputs are stored in a public GitHub repository per the assignment instructions.</p>
+
+<h2>Prompt / Code Structure</h2>
+
+<p>For each of the 50 companies:
+1. <strong>Search</strong> — query <code>"{company} corporate headquarters address phone number official website"</code>, top results returned.
+2. <strong>Fetch + extract</strong> — the top 2–3 result URLs were fetched with a structured extraction prompt asking for <code>Location: ...; Phone: ...; Website: ...</code>, instructing the model to answer "Unknown" rather than guess if a fact wasn't clearly present on the page.
+3. <strong>Parse</strong> — a regex pulled the three fields out of the model's structured reply and wrote them to the output CSV/XLSX, with a JSONL log of sources used per company for traceability.
+4. Progress was checkpointed to disk after every company so a long run could resume without repeating completed work.</p>
+
+<h2>Challenges Faced</h2>
+
+<ul>
+<li><strong>Masked data from aggregator sites</strong>: Some searches surfaced lead-gen sites (ZoomInfo, Seamless.ai) that display phone numbers with redacted digits (e.g., "(801) 278-xxxx"). I added a filter to reject any phone number containing stray "x" characters and an <code>excluded_domains</code> list to steer searches toward official company sites instead.</li>
+<li><strong>Entity confusion</strong>: A couple of common/short brand names collided with unrelated companies in search results — e.g., "MSR" initially matched a Japanese company instead of Mountain Safety Research, and "Stanley" briefly matched Morgan Stanley. These were caught during manual QA and corrected against verified brand knowledge.</li>
+<li><strong>Low-quality source domains</strong>: Complaint-aggregator sites (pissedconsumer.com) and other non-authoritative domains occasionally got selected as the "website" field; these were excluded and replaced with verified official domains.</li>
+<li><strong>Ambiguous entity</strong>: "Sonder" did not resolve to a recognizable outdoor gear brand — it kept matching Sonder Holdings (hospitality). Rather than force a false match, this row was flagged as "Unknown / ambiguous" instead of populated with a likely-wrong answer.</li>
+<li><strong>Rate limiting / runtime</strong>: Sequentially researching 50 companies (search + multi-page fetch each) took roughly 15–20 minutes total; the script was designed to checkpoint progress so partial runs could resume without re-querying companies already completed.</li>
+</ul>
+
+<h2>QA Methodology</h2>
+
+<p>After the automated pass, every row was reviewed for: (1) missing values, (2) phone numbers with masked/placeholder digits, (3) websites pointing to non-official domains (aggregators, unrelated companies), and (4) location fields missing state/country. Flagged rows were re-researched with a narrower, domain-excluded search, and any remaining low-confidence fields were manually verified or explicitly left blank/"Unknown" rather than guessed — prioritizing accuracy over completeness.</p>
+</body></html>
